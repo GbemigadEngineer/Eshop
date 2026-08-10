@@ -6,6 +6,7 @@ const morgan = require("morgan");
 // const swaggerSpec = require("./config/swagger");
 
 const rateLimit = require("express-rate-limit");
+const authRoutes = require("./routes/authRoutes");
 
 const errorHandler = require("./middleware/errorHandler");
 const notFound = require("./middleware/notFound");
@@ -59,6 +60,8 @@ app.get("/api/health", (req, res) => {
 // }
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
+
+app.use("/api/auth", authRoutes);
 
 // ─── Error Handling ──────────────────────────────────────────────────────────
 app.use(notFound);

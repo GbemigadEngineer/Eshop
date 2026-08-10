@@ -46,6 +46,40 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+// ─── Validate passwordConfirm matches password ────────────────────────────
+userSchema.pre("validate", function () {
+  if (this.isModified("password") && this._passwordConfirm !== undefined) {
+    if (this.password !== this._passwordConfirm) {
+      throw new Error("Passwords do not match");
+    }
+  }
+});
+
+// ─── Generate a unique eshopId before first save ──────────────────────────
+userSchema.pre("save", async function () {
+  if (!this.isNew) return;
+
+  let unique = false;
+  while (!unique) {
+    const randomDigits = Math.floor(100000 + Math.random() * 900000);
+    const candidateId = `eshop${randomDigits}`;
+    const existing = await mongoose.models.User.findOne({
+      eshopId: candidateId,
+    });
+    if (!existing) {
+      this.eshopId = candidateId;
+      unique = true;
+    }
+  }
+});
+
+// ─── Hash password before saving ──────────────────────────────────────────
+userSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
+
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+});
 
 // ─── Virtual field: passwordConfirm (not persisted to DB) ─────────────────
 userSchema
@@ -56,45 +90,6 @@ userSchema
   .set(function (value) {
     this._passwordConfirm = value;
   });
-
-// ─── Validate passwordConfirm matches password ────────────────────────────
-userSchema.pre("validate", function (next) {
-  if (this.isModified("password") && this._passwordConfirm !== undefined) {
-    if (this.password !== this._passwordConfirm) {
-      return next(new Error("Passwords do not match"));
-    }
-  }
-  next();
-});
-
-// ─── Generate a unique eshopId before first save ──────────────────────────
-userSchema.pre("save", async function (next) {
-  if (!this.isNew) return next();
-
-  let unique = false;
-  while (!unique) {
-    const randomDigits = Math.floor(100000 + Math.random() * 900000); // 6 digits
-    const candidateId = `eshop${randomDigits}`;
-    const existing = await mongoose.models.User.findOne({
-      eshopId: candidateId,
-    });
-    if (!existing) {
-      this.eshopId = candidateId;
-      unique = true;
-    }
-  }
-  next();
-});
-
-// ─── Hash password before saving ──────────────────────────────────────────
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) {
-    return next();
-  }
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  next();
-});
 
 // ─── Compare entered password with hashed password in DB ─────────────────
 userSchema.methods.matchPassword = async function (enteredPassword) {
