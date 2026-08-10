@@ -28,6 +28,19 @@ router.post(
       .optional()
       .isIn(["nin", "bvn"])
       .withMessage("idType must be either 'nin' or 'bvn'"),
+    body("idNumber")
+      .optional()
+      .isLength({ min: 5 })
+      .withMessage("idNumber must be at least 5 characters"),
+    body().custom((value, { req }) => {
+      const { idType, idNumber } = req.body;
+      if ((idType && !idNumber) || (!idType && idNumber)) {
+        throw new Error(
+          "Both idType and idNumber must be provided together, or neither"
+        );
+      }
+      return true;
+    }),
   ],
   validateRequest,
   registerUser
