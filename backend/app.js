@@ -2,16 +2,16 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
-// const swaggerUi = require("swagger-ui-express");
-// const swaggerSpec = require("./config/swagger");
-
 const rateLimit = require("express-rate-limit");
-const authRoutes = require("./routes/authRoutes");
 
 const errorHandler = require("./middleware/errorHandler");
 const notFound = require("./middleware/notFound");
 
 // Route imports
+const authRoutes = require("./routes/authRoutes");
+const productRoutes = require("./routes/productRoutes");
+const cartRoutes = require("./routes/cartRoutes");
+const orderRoutes = require("./routes/orderRoutes");
 
 const app = express();
 
@@ -39,7 +39,10 @@ app.use(
   })
 );
 
-// ─── Body Parsing ────────────────────────────────────────────────────────────
+// ─── Paystack webhook — RAW body, must come before express.json() ─────────
+app.use("/api/orders/webhook", express.raw({ type: "application/json" }));
+
+// ─── Body Parsing (everything else) ──────────────────────────────────────────
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
@@ -53,15 +56,11 @@ app.get("/api/health", (req, res) => {
   res.json({ success: true, message: "E-commerce API is running 🚀" });
 });
 
-// ─── API Documentation (dev only) ───────────────────────────────────────────
-// if (process.env.NODE_ENV === "development") {
-//   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-//   console.log("📚 Swagger docs available at http://localhost:5000/api-docs");
-// }
-
 // ─── Routes ──────────────────────────────────────────────────────────────────
-
 app.use("/api/auth", authRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/cart", cartRoutes);
+app.use("/api/orders", orderRoutes);
 
 // ─── Error Handling ──────────────────────────────────────────────────────────
 app.use(notFound);
