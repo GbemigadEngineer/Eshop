@@ -30,13 +30,11 @@ const userSchema = new mongoose.Schema(
       enum: ["user", "admin"],
       default: "user",
     },
-    idType: {
       idType: {
         type: String,
         enum: ["nin", "bvn"],
         // no default — stays undefined until the user (or checkout flow) sets it
       },
-    },
     idNumber: {
       type: String,
       trim: true,

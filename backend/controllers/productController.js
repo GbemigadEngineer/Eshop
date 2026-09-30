@@ -67,6 +67,7 @@ const getProductById = async (req, res, next) => {
 // ─── @access  Private/Admin ──────────────────────────────────────────────────
 const createProduct = async (req, res, next) => {
   try {
+    if (req.role)
     if (!req.files || req.files.length === 0) {
       const error = new Error("At least one product image is required");
       error.statusCode = 400;
