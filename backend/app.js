@@ -7,7 +7,6 @@ const rateLimit = require("express-rate-limit");
 const errorHandler = require("./middleware/errorHandler");
 const notFound = require("./middleware/notFound");
 
-// Route imports
 const authRoutes = require("./routes/authRoutes");
 const productRoutes = require("./routes/productRoutes");
 const cartRoutes = require("./routes/cartRoutes");
@@ -17,21 +16,28 @@ const app = express();
 
 app.set("trust proxy", 1);
 
-// ─── Security Middleware ─────────────────────────────────────────────────────
 app.use(helmet());
 
-// ─── Rate Limiting ───────────────────────────────────────────────────────────
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: {
-    success: false,
-    message: "Too many requests, please try again later.",
-  },
-});
-app.use("/api", limiter);
+// General limiter (Paystack's webhook is exempt)
+app.use(
+  "/api",
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    skip: (req) => req.originalUrl.startsWith("/api/orders/webhook"),
+    message: { success: false, message: "Too many requests, please try again later." },
+  })
+);
 
-// ─── CORS ────────────────────────────────────────────────────────────────────
+// Stricter limiter on credential endpoints (relaxed in development)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: process.env.NODE_ENV === "production" ? 10 : 200,
+  message: { success: false, message: "Too many attempts, please try again later." },
+});
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/register", authLimiter);
+
 app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:5173",
@@ -39,30 +45,27 @@ app.use(
   })
 );
 
-// ─── Paystack webhook — RAW body, must come before express.json() ─────────
+// Paystack webhook needs the RAW body for signature verification.
+// This MUST stay above express.json().
 app.use("/api/orders/webhook", express.raw({ type: "application/json" }));
 
-// ─── Body Parsing (everything else) ──────────────────────────────────────────
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// ─── Logging (dev only) ──────────────────────────────────────────────────────
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
 
-// ─── Health Check ────────────────────────────────────────────────────────────
 app.get("/api/health", (req, res) => {
   res.json({ success: true, message: "E-commerce API is running 🚀" });
 });
 
-// ─── Routes ──────────────────────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
 
-// ─── Error Handling ──────────────────────────────────────────────────────────
+// Must be last
 app.use(notFound);
 app.use(errorHandler);
 
